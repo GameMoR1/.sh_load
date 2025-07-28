@@ -1,47 +1,43 @@
 #!/bin/bash
 
-# Переменные
-APPIMAGE_URL="https://releases.lmstudio.ai/linux/x86/0.3.5/2/LM_Studio-0.3.5.AppImage"
-APPIMAGE_NAME="LM_Studio-0.3.5.AppImage"
-INSTALL_DIR="$HOME/LMStudio"
-DESKTOP_FILE="$HOME/.local/share/applications/LM-Studio.desktop"
+# Обновление списка пакетов и установка зависимостей
+sudo apt update
+sudo apt install -y wget libfuse2 libatk1.0-0 libatk-bridge2.0-0 libcups2 libgdk-pixbuf2.0-0 libgtk-3-0 libpango-1.0-0 libcairo2 libxcomposite1 libxdamage1 libasound2 libatspi2.0-0 fuse xvfb
 
-# Создание директории для установки
-mkdir -p "$INSTALL_DIR"
-cd "$INSTALL_DIR" || exit 1
+# Проверка загрузки модуля FUSE
+sudo modprobe fuse
+if ! lsmod | grep -q fuse ; then
+  echo "Ошибка: модуль fuse не загружен. Проверьте поддержку FUSE в вашей системе."
+  exit 1
+fi
 
-echo "Скачиваем LM Studio AppImage..."
-curl -L -o "$APPIMAGE_NAME" "$APPIMAGE_URL"
+# Создаём папку для LM Studio
+mkdir -p ~/lmstudio && cd ~/lmstudio
 
-echo "Делаем AppImage исполняемым..."
-chmod +x "$APPIMAGE_NAME"
+# Загрузка последнего AppImage LM Studio
+LMSTUDIO_VERSION="0.3.15-11"  # Можно обновить версию при необходимости
+LMSTUDIO_APPIMAGE="LM-Studio-${LMSTUDIO_VERSION}-x64.AppImage"
+wget -c "https://installers.lmstudio.ai/linux/x64/${LMSTUDIO_VERSION}/${LMSTUDIO_APPIMAGE}"
 
-echo "Распаковываем AppImage..."
-./"$APPIMAGE_NAME" --appimage-extract
+# Делаем файл исполняемым
+chmod +x "${LMSTUDIO_APPIMAGE}"
 
-echo "Устанавливаем права для chrome-sandbox..."
-sudo chown root:root squashfs-root/chrome-sandbox
-sudo chmod 4755 squashfs-root/chrome-sandbox
+# Запуск LM Studio в виртуальном фреймбуфере для GUI на сервере без физического дисплея
+# Порт веб-интерфейса по умолчанию 1234
+XVFB_DISPLAY=:99
+export DISPLAY=$XVFB_DISPLAY
+Xvfb $XVFB_DISPLAY -screen 0 1280x720x24 &
 
-echo "Готово! LM Studio установлена в $INSTALL_DIR"
+# Ждём небольшую паузу, чтобы Xvfb запустился
+sleep 3
 
-echo "Создаём ярлык в меню приложений..."
-mkdir -p "$(dirname "$DESKTOP_FILE")"
-cat > "$DESKTOP_FILE" <<EOF
-[Desktop Entry]
-Name=LM Studio
-Exec=$INSTALL_DIR/squashfs-root/lm-studio
-Icon=$INSTALL_DIR/squashfs-root/resources/app/icon.png
-Type=Application
-Categories=Development;AI;
-Comment=Local Large Language Models Studio
-EOF
+# Запускаем LM Studio в фоне
+./${LMSTUDIO_APPIMAGE} &
 
-chmod +x "$DESKTOP_FILE"
+echo "LM Studio запущен в режиме GUI с виртуальным дисплеем."
+echo "Для доступа к веб-интерфейсу откройте браузер и перейдите по адресу:"
+echo "    http://<IP_вашего_сервера>:1234"
+echo "Если доступ с удаленной машины не работает, настройте проброс портов или SSH-туннель на порт 1234."
 
-echo "Вы можете запустить LM Studio командой: $INSTALL_DIR/squashfs-root/lm-studio"
-echo "Ярлык LM Studio добавлен в меню приложений."
-
-# По желанию, сразу запустим LM Studio
-# Uncomment следующую строку для автоматического запуска
-"$INSTALL_DIR/squashfs-root/lm-studio"
+echo "Если нужно завершить работу LM Studio, найдите процесс и завершите его командой:"
+echo "    pkill -f '${LMSTUDIO_APPIMAGE}'"
