@@ -1,43 +1,48 @@
 #!/bin/bash
 
-# Обновление списка пакетов и установка зависимостей
-apt update
-apt install -y wget libfuse2 libatk1.0-0 libatk-bridge2.0-0 libcups2 libgdk-pixbuf2.0-0 libgtk-3-0 libpango-1.0-0 libcairo2 libxcomposite1 libxdamage1 libasound2 libatspi2.0-0 fuse xvfb
-
-# Проверка загрузки модуля FUSE
-modprobe fuse
-if ! lsmod | grep -q fuse ; then
-  echo "Ошибка: модуль fuse не загружен. Проверьте поддержку FUSE в вашей системе."
-  exit 1
+# Проверяем доступность ключевых команд modprobe и lsmod, просто для предупреждения
+if ! command -v modprobe >/dev/null 2>&1; then
+  echo "Внимание: команда modprobe не найдена. Проверка загрузки модуля fuse невозможна."
 fi
 
-# Создаём папку для LM Studio
+if ! command -v lsmod >/dev/null 2>&1; then
+  echo "Внимание: команда lsmod не найдена. Проверка загруженных модулей невозможна."
+fi
+
+# Установка пакетов без sudo невозможна, предположим, что они уже установлены.
+# Проверяем наличие libfuse2 и fuse по библиотекам:
+if [ ! -f /lib/x86_64-linux-gnu/libfuse.so.2 ] && [ ! -f /lib64/libfuse.so.2 ]; then
+  echo "Внимание: libfuse2 не найдена. Пожалуйста, установите пакет libfuse2 самостоятельно."
+fi
+
+if ! command -v Xvfb >/dev/null 2>&1; then
+  echo "Внимание: Xvfb не установлен. Виртуальный X-сервер недоступен."
+fi
+
+# Переходим в домашнюю папку и создаём директорию lmstudio
 mkdir -p ~/lmstudio && cd ~/lmstudio
 
-# Загрузка последнего AppImage LM Studio
-LMSTUDIO_VERSION="0.3.15-11"  # Можно обновить версию при необходимости
+# Версия LM Studio
+LMSTUDIO_VERSION="0.3.15-11"
 LMSTUDIO_APPIMAGE="LM-Studio-${LMSTUDIO_VERSION}-x64.AppImage"
-wget -c "https://installers.lmstudio.ai/linux/x64/${LMSTUDIO_VERSION}/${LMSTUDIO_APPIMAGE}"
 
-# Делаем файл исполняемым
-chmod +x "${LMSTUDIO_APPIMAGE}"
+# Загружаем LM Studio, если он ещё не скачан
+if [ ! -f "$LMSTUDIO_APPIMAGE" ]; then
+  wget -c "https://installers.lmstudio.ai/linux/x64/${LMSTUDIO_VERSION}/${LMSTUDIO_APPIMAGE}"
+fi
 
-# Запуск LM Studio в виртуальном фреймбуфере для GUI на сервере без физического дисплея
-# Порт веб-интерфейса по умолчанию 1234
-XVFB_DISPLAY=:99
-export DISPLAY=$XVFB_DISPLAY
-Xvfb $XVFB_DISPLAY -screen 0 1280x720x24 &
+chmod +x "$LMSTUDIO_APPIMAGE"
 
-# Ждём небольшую паузу, чтобы Xvfb запустился
+# Запускаем Xvfb в фоне (если установлен)
+export DISPLAY=:99
+Xvfb :99 -screen 0 1280x720x24 &
 sleep 3
 
-# Запускаем LM Studio в фоне
-./${LMSTUDIO_APPIMAGE} &
+# Запускаем LM Studio
+./"$LMSTUDIO_APPIMAGE" &
 
-echo "LM Studio запущен в режиме GUI с виртуальным дисплеем."
-echo "Для доступа к веб-интерфейсу откройте браузер и перейдите по адресу:"
-echo "    http://<IP_вашего_сервера>:1234"
-echo "Если доступ с удаленной машины не работает, настройте проброс портов или SSH-туннель на порт 1234."
+echo "LM Studio запущен."
+echo "Откройте в браузере веб-интерфейс по адресу http://<IP_вашего_сервера>:1234"
+echo "Если он недоступен, проверьте проброс портов и наличие FUSE."
 
-echo "Если нужно завершить работу LM Studio, найдите процесс и завершите его командой:"
-echo "    pkill -f '${LMSTUDIO_APPIMAGE}'"
+exit 0
