@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Обновление списка пакетов и установка зависимостей
-sudo apt update
-sudo apt install -y wget libfuse2 libatk1.0-0 libatk-bridge2.0-0 libcups2 libgdk-pixbuf2.0-0 libgtk-3-0 libpango-1.0-0 libcairo2 libxcomposite1 libxdamage1 libasound2 libatspi2.0-0 fuse xvfb
+apt update
+apt install -y wget libfuse2 libatk1.0-0 libatk-bridge2.0-0 libcups2 libgdk-pixbuf2.0-0 libgtk-3-0 libpango-1.0-0 libcairo2 libxcomposite1 libxdamage1 libasound2 libatspi2.0-0 fuse xvfb
 
 # Проверка загрузки модуля FUSE
-sudo modprobe fuse
+modprobe fuse
 if ! lsmod | grep -q fuse ; then
   echo "Ошибка: модуль fuse не загружен. Проверьте поддержку FUSE в вашей системе."
   exit 1
